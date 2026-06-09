@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>A Masmorra</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     CHARACTER SELECT SCREEN
+════════════════════════════════════════════════ -->
+<div id="char-screen">
+  <h2 class="char-title">⚔️ Escolha seu Herói ⚔️</h2>
+  <p class="char-sub">Quem entrará na masmorra?</p>
+
+  <div class="char-grid">
+    <button class="char-card" data-emoji="⚔️">
+      <span class="char-emoji">⚔️</span>
+      <span class="char-name">Cavaleiro</span>
+      <span class="char-desc">Forte e honrado</span>
+    </button>
+    <button class="char-card" data-emoji="🧙">
+      <span class="char-emoji">🧙</span>
+      <span class="char-name">Mago</span>
+      <span class="char-desc">Astuto e sábio</span>
+    </button>
+    <button class="char-card" data-emoji="🏹">
+      <span class="char-emoji">🏹</span>
+      <span class="char-name">Arqueiro</span>
+      <span class="char-desc">Veloz e preciso</span>
+    </button>
+    <button class="char-card" data-emoji="🛡️">
+      <span class="char-emoji">🛡️</span>
+      <span class="char-name">Paladino</span>
+      <span class="char-desc">Corajoso e fiel</span>
+    </button>
+  </div>
+
+  <div class="char-seed-row">
+    <span class="char-seed-label">Semente:</span>
+    <input id="char-seed-input" type="number" min="1" max="99999" placeholder="1–99999">
+    <button class="seed-btn" id="char-btn-new-seed" title="Semente aleatória">🎲</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     GAME SCREEN
+════════════════════════════════════════════════ -->
+<header class="game-header">
+  <h1 class="game-title">⚔️ A Masmorra ⚔️</h1>
+  <p class="game-sub">Encontre o tesouro nas profundezas...</p>
+</header>
+
+<div class="stats">
+  <div class="stat-pill">Passos: <span id="moves">0</span></div>
+  <div class="stat-pill">Tempo: <span id="timer">0s</span></div>
+  <div class="stat-pill hero-pill">Herói: <span id="hero-display">⚔️</span></div>
+  <div class="stat-pill lives-pill">Vida: <span id="lives-display">❤️❤️❤️</span></div>
+</div>
+
+<div class="seed-row">
+  <span class="seed-label">Semente:</span>
+  <input id="seed-input" type="number" min="1" max="99999" placeholder="1–99999">
+  <button class="seed-btn" id="btn-apply-seed" title="Aplicar">↵</button>
+  <button class="seed-btn" id="btn-new-seed" title="Aleatória">🎲</button>
+</div>
+
+<div class="maze-wrap" id="maze-wrap">
+  <div id="maze"></div>
+</div>
+
+<p class="hint" id="hint-text">← ↑ → ↓ para mover &nbsp;|&nbsp; empurre o inimigo para explodir</p>
+
+<!-- D-pad (always present; visibility controlled by CSS/JS) -->
+<div class="dpad" id="dpad" aria-label="Controles">
+  <button class="dpad-btn dpad-up"    data-dir="up"    aria-label="Cima">▲</button>
+  <button class="dpad-btn dpad-left"  data-dir="left"  aria-label="Esquerda">◀</button>
+  <button class="dpad-btn dpad-center"></button>
+  <button class="dpad-btn dpad-down"  data-dir="down"  aria-label="Baixo">▼</button>
+  <button class="dpad-btn dpad-right" data-dir="right" aria-label="Direita">▶</button>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     LOSE SCREEN
+════════════════════════════════════════════════ -->
+<div id="lose-screen" role="dialog" aria-modal="true">
+  <div class="lose-card">
+    <p class="lose-skull">💀</p>
+    <h2 class="lose-title">Você foi derrotado!</h2>
+    <p class="lose-sub">O inimigo foi forte demais...</p>
+    <button class="btn-restart lose-btn" id="btn-lose-restart">Tentar Novamente ⚔️</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     WIN SCREEN — love note
+     Set imageSrc in CONFIG (game.js) to show a photo.
+════════════════════════════════════════════════ -->
+<div id="win-screen" role="dialog" aria-modal="true">
+
+  <div class="love-note">
+    <div class="note-ribbon">💝</div>
+    <span class="note-corner tl">🌹</span>
+    <span class="note-corner tr">🌹</span>
+    <span class="note-corner bl">💕</span>
+    <span class="note-corner br">💕</span>
+
+    <h2 class="note-title" id="win-title"></h2>
+    <hr class="note-divider">
+    <p class="note-message" id="win-message"></p>
+
+    <div class="photo-frame" id="photo-frame">
+      <img id="love-photo" src="" alt="Nossa foto">
+      <div class="photo-placeholder" id="photo-placeholder">
+        <span>📷</span>
+        Sua foto aqui
+      </div>
+    </div>
+
+    <div class="note-stats">
+      <div class="nstat"><strong id="f-moves">0</strong>passos</div>
+      <div class="nstat"><strong id="f-time">0s</strong>tempo</div>
+    </div>
+
+    <button class="btn-restart" id="btn-restart">Jogar Novamente 💕</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
