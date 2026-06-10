@@ -41,6 +41,11 @@
     </button>
   </div>
 
+  <div class="diff-row">
+    <button class="diff-btn selected" data-diff="normal">⚔️ Normal<span class="diff-desc">1 inimigo</span></button>
+    <button class="diff-btn" data-diff="hard">💀 Difícil<span class="diff-desc">2 inimigos</span></button>
+  </div>
+
   <div class="char-seed-row">
     <span class="char-seed-label">Semente:</span>
     <input id="char-seed-input" type="number" min="1" max="99999" placeholder="1–99999">
@@ -130,6 +135,12 @@
     <button class="btn-restart" id="btn-restart">Jogar Novamente 💕</button>
   </div>
 </div>
+
+<!-- Edge controls — visible only on touch devices via CSS -->
+<div class="edge-ctrl" id="edge-up"    data-dir="up">▲</div>
+<div class="edge-ctrl" id="edge-down"  data-dir="down">▼</div>
+<div class="edge-ctrl" id="edge-left"  data-dir="left">◀</div>
+<div class="edge-ctrl" id="edge-right" data-dir="right">▶</div>
 
 <script src="game.js"></script>
 </body>

@@ -199,14 +199,7 @@ body::before {
 /* ══════════════════════════════════════════════════
    SEED ROW (in-game)
 ════════════════════════════════════════════════════ */
-.seed-row {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 3px 0 4px;
-}
+.seed-row { display: none; }
 
 .seed-label {
   font-size: 0.74rem;
@@ -306,15 +299,6 @@ body::before {
 /* ── Weak enemy (grayed out after counterattack) ── */
 .enemy-weak {
   filter: grayscale(0.85) opacity(0.62) !important;
-}
-.enemy-weak::after {
-  content: 'FRACO';
-  display: block;
-  font-size: 0.38em;
-  font-weight: 700;
-  color: #888;
-  line-height: 1;
-  letter-spacing: 0.05em;
 }
 
 /* ── Enemy counterattack flash ── */
@@ -756,8 +740,145 @@ body.player-hit::after {
    RESPONSIVE — small screens / mobile
 ════════════════════════════════════════════════════ */
 
-/* Hide keyboard hint on touch devices (set by JS) */
+/* Hide keyboard hint and D-pad on touch devices */
 body.is-touch .hint { display: none; }
+body.is-touch .dpad { display: none; }
+
+/* ══════════════════════════════════════════════════
+   EDGE CONTROLS (touch only)
+════════════════════════════════════════════════════ */
+.edge-ctrl {
+  display: none;
+  position: fixed;
+  z-index: 12;
+  align-items: center;
+  justify-content: center;
+  color: rgba(200,146,42,0.45);
+  font-size: 1.5rem;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s, color 0.1s;
+}
+body.is-touch .edge-ctrl { display: flex; }
+.edge-ctrl:active {
+  background: rgba(200,146,42,0.18) !important;
+  color: rgba(200,146,42,0.9) !important;
+}
+
+#edge-left {
+  top: 0; bottom: 0; left: 0; width: 14vw;
+  background: linear-gradient(to right, rgba(200,146,42,0.10) 0%, transparent 100%);
+  justify-content: flex-start;
+  padding-left: 3px;
+}
+#edge-right {
+  top: 0; bottom: 0; right: 0; width: 14vw;
+  background: linear-gradient(to left, rgba(200,146,42,0.10) 0%, transparent 100%);
+  justify-content: flex-end;
+  padding-right: 3px;
+}
+#edge-up {
+  top: 0; left: 14vw; right: 14vw; height: 13vh;
+  background: linear-gradient(to bottom, rgba(200,146,42,0.10) 0%, transparent 100%);
+  align-items: flex-start;
+  padding-top: 2px;
+}
+#edge-down {
+  bottom: 0; left: 14vw; right: 14vw; height: 13vh;
+  background: linear-gradient(to top, rgba(200,146,42,0.10) 0%, transparent 100%);
+  align-items: flex-end;
+  padding-bottom: 2px;
+}
+
+/* ══════════════════════════════════════════════════
+   DIFFICULTY BUTTONS (char select)
+════════════════════════════════════════════════════ */
+.diff-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 14px 0 4px;
+}
+.diff-btn {
+  background: rgba(25,15,5,0.8);
+  border: 2px solid var(--amber-dim);
+  border-radius: 6px;
+  color: var(--amber);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.9rem;
+  padding: 7px 22px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.diff-btn .diff-desc {
+  font-size: 0.68rem;
+  color: #8a6030;
+  font-family: Georgia, serif;
+}
+.diff-btn.selected {
+  border-color: var(--amber);
+  background: rgba(200,146,42,0.14);
+}
+.diff-btn:hover { border-color: var(--amber); }
+
+/* ══════════════════════════════════════════════════
+   ENEMY GLOW (character attack color when in range)
+════════════════════════════════════════════════════ */
+.enemy-glow {
+  animation: enemyGlowPulse 0.55s ease-in-out infinite alternate !important;
+}
+@keyframes enemyGlowPulse {
+  from { box-shadow: 0 0 5px 2px var(--atk-color, #ff4400) inset; }
+  to   { box-shadow: 0 0 14px 6px var(--atk-color, #ff4400) inset, 0 0 10px 3px var(--atk-color, #ff4400); }
+}
+
+/* ══════════════════════════════════════════════════
+   FRACO FLOATING LABEL
+════════════════════════════════════════════════════ */
+.enemy-fraco-label {
+  position: fixed;
+  transform: translateX(-50%);
+  font-size: 0.58rem;
+  font-weight: 700;
+  font-family: Georgia, serif;
+  letter-spacing: 0.08em;
+  color: #888;
+  background: rgba(20,12,4,0.82);
+  padding: 1px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 8;
+  display: none;
+}
+
+/* ══════════════════════════════════════════════════
+   QUASE LÁ message
+════════════════════════════════════════════════════ */
+.quase-la-msg {
+  position: fixed;
+  bottom: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.3rem, 5vw, 2.1rem);
+  font-weight: 700;
+  color: #ffd040;
+  text-shadow: 0 0 18px rgba(255,200,0,0.65), 1px 1px 0 #000;
+  pointer-events: none;
+  z-index: 900;
+  white-space: nowrap;
+  animation: quaseLaFade 2.5s ease-out forwards;
+}
+@keyframes quaseLaFade {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(14px); }
+  18%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  72%  { opacity: 1; }
+  100% { opacity: 0; }
+}
 
 /* Tighter layout on short screens */
 @media (max-height: 680px) {

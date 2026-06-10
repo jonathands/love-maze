@@ -2,20 +2,16 @@
 //  CONFIG — edit this object to customise the game and win screen
 // ══════════════════════════════════════════════════════════════
 var CONFIG = {
-  seed:     null,
-  title:    'Vc achou o tesouro 💎',
-  message:  'Muito obrigado por tudo meu amor,\nsempre estaremos juntos 💕',
-  imageSrc: 'amore.jpg',
+  seed:      null,
+  gameName:  'A Masmorra',
+  tagline:   'Encontre o tesouro nas profundezas...',
+  title:     'Parabéns, vc achou meu tesouro 💎',
+  message:   'Muito obrigado por tudo meu amor,\n por estar sempre do nosso lado e por me aturar sempre 💕\n Com você todo esforço vale a pena e toda alegria se multiplica ',
+  imageSrc:  'amore.jpg',
 };
 
 // ══════════════════════════════════════════════════════════════
 //  ATTACKS — one entry per selectable character
-//  Each defines the visual, particle, and mechanic for the attack.
-//
-//  mechanic:
-//    'contact'  – player walks onto enemy cell          (Knight, Paladin)
-//    'adjacent' – player fires from 1 cell away         (Mage)
-//    'ranged'   – player fires from 2 cells in a line   (Archer, falls back to contact)
 // ══════════════════════════════════════════════════════════════
 var ATTACKS = {
   '⚔️': {
@@ -27,7 +23,6 @@ var ATTACKS = {
     count:     14,
     duration:  420,
     mechanic:  'contact',
-    // Broad sword sweep perpendicular to movement
     makeParticles: function (i, n, cx, cy, dr, dc) {
       var base  = Math.atan2(dc, dr) + Math.PI / 2;
       var angle = base - 0.6 * Math.PI + (i / (n - 1)) * Math.PI * 1.2;
@@ -43,8 +38,7 @@ var ATTACKS = {
     pool:      ['🔮','✨','⭐','💫','🌟','🪄'],
     count:     18,
     duration:  680,
-    mechanic:  'adjacent',   // Mage stays 1 cell back, fires spell
-    // Full circular burst, large radius
+    mechanic:  'adjacent',
     makeParticles: function (i, n, cx, cy, dr, dc) {
       var angle = (i / n) * Math.PI * 2 + Math.random() * 0.3;
       var dist  = 85 + Math.random() * 85;
@@ -59,8 +53,7 @@ var ATTACKS = {
     pool:      ['🏹','💨','✨','🎯','💥'],
     count:     8,
     duration:  260,
-    mechanic:  'ranged',     // shoots from 2 cells in same row/col
-    // Tight directional cone
+    mechanic:  'ranged',
     makeParticles: function (i, n, cx, cy, dr, dc) {
       var base  = Math.atan2(dr, dc);
       var angle = base + (Math.random() - 0.5) * 0.6;
@@ -76,8 +69,7 @@ var ATTACKS = {
     pool:      ['✨','🌟','💛','⚡','🔱','💫'],
     count:     14,
     duration:  750,
-    mechanic:  'contact',    // contact + AoE flash on neighbours
-    // Particles fall from above target position
+    mechanic:  'contact',
     makeParticles: function (i, n, cx, cy, dr, dc) {
       var sx  = cx + (Math.random() - 0.5) * 110;
       var sy  = cy - 70 - Math.random() * 60;
@@ -106,7 +98,7 @@ var ATTACKS = {
     };
   }
 
-  // ── Maze generation (recursive backtracker DFS) ──────────────
+  // ── Maze generation (DFS + BFS for path-based enemy placement) ──
   function generateMaze(seed) {
     var rng = createRNG(seed);
     var grid = [];
@@ -133,8 +125,8 @@ var ATTACKS = {
     }
     dfs(START_R, START_C);
 
-    // BFS from start to goal to find the solution path
-    var bfsQ   = [[START_R, START_C]];
+    // BFS to find shortest solution path
+    var bfsQ    = [[START_R, START_C]];
     var bfsPrev = {};
     bfsPrev[START_R * 100 + START_C] = null;
     var dirs4 = [[-1,0],[1,0],[0,-1],[0,1]];
@@ -150,15 +142,17 @@ var ATTACKS = {
         }
       }
     }
-    // Reconstruct path (array of [r,c] from start to goal)
     var path = [], step = [GOAL_R, GOAL_C];
     while (step) { path.unshift(step); step = bfsPrev[step[0] * 100 + step[1]]; }
 
-    // Pick enemy from the middle 25%–70% of the path (never at start or goal)
-    var lo = Math.max(1, Math.floor(path.length * 0.25));
-    var hi = Math.min(path.length - 2, Math.floor(path.length * 0.70));
-    var pick = path[lo + Math.floor(rng() * (hi - lo + 1))];
-    return { grid: grid, enemyR: pick[0], enemyC: pick[1] };
+    // Enemy 1: 20%–45% of path; Enemy 2: 55%–75%
+    var lo1 = Math.max(1, Math.floor(path.length * 0.20));
+    var hi1 = Math.min(path.length - 3, Math.floor(path.length * 0.45));
+    var lo2 = Math.max(lo1 + 2, Math.floor(path.length * 0.55));
+    var hi2 = Math.min(path.length - 2, Math.floor(path.length * 0.75));
+    var p1  = path[lo1 + Math.floor(rng() * Math.max(1, hi1 - lo1 + 1))];
+    var p2  = path[lo2 + Math.floor(rng() * Math.max(1, hi2 - lo2 + 1))];
+    return { grid: grid, pos1: p1, pos2: p2 };
   }
 
   // ── State ───────────────────────────────────────────────────
@@ -167,42 +161,41 @@ var ATTACKS = {
     ? CONFIG.seed
     : (Math.floor(Math.random() * 99998) + 1);
   var selectedChar = '⚔️';
-  var pR, pC, eR, eC;
+  var difficulty   = 'normal';
+  var pR, pC;
+  // enemies: [{r, c, weak, label}]  — r=-1 means dead
+  var enemies = [];
   var moves = 0, seconds = 0;
   var timerID = null, won = false;
   var visited = new Set();
   var lives = 3;
-  var enemyWeak = false;
   var blocked = false;
+  var shownQuaseLa = false;
 
   // ── DOM ─────────────────────────────────────────────────────
-  var mazeEl       = document.getElementById('maze');
-  var mazeWrap     = document.getElementById('maze-wrap');
-  var movesEl      = document.getElementById('moves');
-  var timerEl      = document.getElementById('timer');
-  var heroDisplay  = document.getElementById('hero-display');
-  var hintEl       = document.getElementById('hint-text');
-  var winScreen    = document.getElementById('win-screen');
-  var charScreen   = document.getElementById('char-screen');
-  var fMovesEl     = document.getElementById('f-moves');
-  var fTimeEl      = document.getElementById('f-time');
-  var lovePhoto    = document.getElementById('love-photo');
-  var placeholder  = document.getElementById('photo-placeholder');
-  var seedInput    = document.getElementById('seed-input');
-  var charSeedInput= document.getElementById('char-seed-input');
-  var livesEl      = document.getElementById('lives-display');
-  var loseScreen   = document.getElementById('lose-screen');
+  var mazeEl        = document.getElementById('maze');
+  var mazeWrap      = document.getElementById('maze-wrap');
+  var movesEl       = document.getElementById('moves');
+  var timerEl       = document.getElementById('timer');
+  var heroDisplay   = document.getElementById('hero-display');
+  var hintEl        = document.getElementById('hint-text');
+  var winScreen     = document.getElementById('win-screen');
+  var charScreen    = document.getElementById('char-screen');
+  var fMovesEl      = document.getElementById('f-moves');
+  var fTimeEl       = document.getElementById('f-time');
+  var lovePhoto     = document.getElementById('love-photo');
+  var placeholder   = document.getElementById('photo-placeholder');
+  var seedInput     = document.getElementById('seed-input');
+  var charSeedInput = document.getElementById('char-seed-input');
+  var livesEl       = document.getElementById('lives-display');
+  var loseScreen    = document.getElementById('lose-screen');
 
-  // ── Touch detection ──────────────────────────────────────────
-  var isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-  if (isTouch) {
-    document.body.classList.add('is-touch');
-    hintEl.textContent = 'Use os botões ou deslize na tela  |  empurre o inimigo para atacar';
-  }
-
-  // ── Win screen content from CONFIG ───────────────────────────
-  document.getElementById('win-title').textContent   = CONFIG.title;
-  document.getElementById('win-message').innerHTML   = CONFIG.message.replace(/\n/g, '<br>');
+  // ── Apply CONFIG to DOM ──────────────────────────────────────
+  document.querySelector('.game-title').textContent = '⚔️ ' + CONFIG.gameName + ' ⚔️';
+  document.querySelector('.game-sub').textContent   = CONFIG.tagline || '';
+  document.title = CONFIG.gameName;
+  document.getElementById('win-title').textContent  = CONFIG.title;
+  document.getElementById('win-message').innerHTML  = CONFIG.message.replace(/\n/g, '<br>');
   if (CONFIG.imageSrc && CONFIG.imageSrc.trim() !== '') {
     lovePhoto.src = CONFIG.imageSrc;
     lovePhoto.style.display   = 'block';
@@ -212,13 +205,23 @@ var ATTACKS = {
     placeholder.style.display = 'flex';
   }
 
-  // ── Character select ─────────────────────────────────────────
+  // ── Touch detection ──────────────────────────────────────────
+  var isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  if (isTouch) {
+    document.body.classList.add('is-touch');
+    hintEl.textContent = 'Toque nas bordas da tela para mover';
+  }
+
+  // ── Character + difficulty select ────────────────────────────
   function showCharScreen() {
     charSeedInput.value = currentSeed;
     charScreen.classList.remove('fade-out');
     charScreen.classList.add('open');
     charScreen.querySelectorAll('.char-card').forEach(function (c) {
       c.classList.toggle('selected', c.dataset.emoji === selectedChar);
+    });
+    charScreen.querySelectorAll('.diff-btn').forEach(function (b) {
+      b.classList.toggle('selected', b.dataset.diff === difficulty);
     });
   }
 
@@ -239,21 +242,51 @@ var ATTACKS = {
     });
   });
 
+  charScreen.querySelectorAll('.diff-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      charScreen.querySelectorAll('.diff-btn').forEach(function (b) { b.classList.remove('selected'); });
+      btn.classList.add('selected');
+      difficulty = btn.dataset.diff;
+    });
+  });
+
   document.getElementById('char-btn-new-seed').addEventListener('click', function () {
     charSeedInput.value = Math.floor(Math.random() * 99998) + 1;
   });
+
+  // ── Enemy helpers ────────────────────────────────────────────
+  function enemyAt(r, c) {
+    for (var i = 0; i < enemies.length; i++) {
+      if (enemies[i].r === r && enemies[i].c === c) return i;
+    }
+    return -1;
+  }
+
+  function isEnemyTarget(pr, pc, er, ec) {
+    var atk = ATTACKS[selectedChar] || ATTACKS['⚔️'];
+    if (atk.mechanic === 'ranged') {
+      if (pr === er && Math.abs(pc - ec) === 2 && MAZE[pr][(pc + ec) / 2] === 0) return true;
+      if (pc === ec && Math.abs(pr - er) === 2 && MAZE[(pr + er) / 2][pc] === 0) return true;
+    }
+    return Math.abs(pr - er) + Math.abs(pc - ec) === 1;
+  }
 
   // ── New game ─────────────────────────────────────────────────
   function newGame(seed) {
     seed = Math.max(1, Math.min(99999, seed | 0)) || 1;
     currentSeed = seed;
     seedInput.value = seed;
+    removeAllFracoLabels();
     var result = generateMaze(seed);
-    MAZE = result.grid; eR = result.enemyR; eC = result.enemyC;
+    enemies = [{ r: result.pos1[0], c: result.pos1[1], weak: false, label: null }];
+    if (difficulty === 'hard') {
+      enemies.push({ r: result.pos2[0], c: result.pos2[1], weak: false, label: null });
+    }
     heroDisplay.textContent = selectedChar;
     pR = START_R; pC = START_C;
     moves = 0; seconds = 0; won = false;
-    lives = 3; enemyWeak = false; blocked = false;
+    lives = 3; blocked = false; shownQuaseLa = false;
+    MAZE = result.grid;
     clearInterval(timerID); timerID = null;
     movesEl.textContent = '0'; timerEl.textContent = '0s';
     visited.clear();
@@ -265,9 +298,9 @@ var ATTACKS = {
   }
 
   // ── Cell size ────────────────────────────────────────────────
-  var RESERVED_H = 350;
   function computeCellPx() {
-    var availH = window.innerHeight - RESERVED_H;
+    var reserved = isTouch ? 130 : 340;
+    var availH = window.innerHeight - reserved;
     var availW = window.innerWidth  - 16;
     return Math.max(24, Math.min(68, Math.min(Math.floor(availH / ROWS), Math.floor(availW / COLS))));
   }
@@ -294,60 +327,100 @@ var ATTACKS = {
 
   function getCell(r, c) { return document.getElementById('c' + r + '_' + c); }
 
-  // ── Proximity check ──────────────────────────────────────────
+  // ── Proximity check (any living enemy in attack range) ───────
   function canAttackFrom(r, c) {
-    if (eR === -1) return false;
     var atk = ATTACKS[selectedChar] || ATTACKS['⚔️'];
-    var manDist = Math.abs(r - eR) + Math.abs(c - eC);
-    if (atk.mechanic === 'ranged') {
-      // 2 cells in same row/col with clear middle
-      if (r === eR && Math.abs(c - eC) === 2 && MAZE[r][(c + eC) / 2] === 0) return true;
-      if (c === eC && Math.abs(r - eR) === 2 && MAZE[(r + eR) / 2][c] === 0) return true;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (e.r === -1) continue;
+      if (isEnemyTarget(r, c, e.r, e.c)) return true;
     }
-    // adjacent triggers for all mechanics
-    return manDist === 1;
+    return false;
   }
 
   // ── Render ───────────────────────────────────────────────────
   function render() {
     var ready = canAttackFrom(pR, pC);
+    var atk   = ATTACKS[selectedChar] || ATTACKS['⚔️'];
     for (var r = 0; r < ROWS; r++) {
       for (var c = 0; c < COLS; c++) {
         if (MAZE[r][c] === 1) continue;
-        var el = getCell(r, c);
+        var el   = getCell(r, c);
+        var eidx = enemyAt(r, c);
         if (r === pR && c === pC) {
-          el.className = 'cell path ' + (ready ? 'cell-player-ready' : 'cell-player');
+          el.className  = 'cell path ' + (ready ? 'cell-player-ready' : 'cell-player');
           el.textContent = selectedChar;
-        } else if (r === eR && c === eC) {
-          el.className = 'cell path cell-enemy' + (enemyWeak ? ' enemy-weak' : '');
+        } else if (eidx !== -1) {
+          var e   = enemies[eidx];
+          var glow = ready && !e.weak && isEnemyTarget(pR, pC, e.r, e.c);
+          var cls  = 'cell path cell-enemy' + (e.weak ? ' enemy-weak' : '') + (glow ? ' enemy-glow' : '');
+          el.className = cls;
+          if (glow) el.style.setProperty('--atk-color', atk.labelColor);
+          else      el.style.removeProperty('--atk-color');
           el.textContent = '💀';
         } else if (r === GOAL_R && c === GOAL_C) {
-          el.className = 'cell path cell-treasure';
+          el.className  = 'cell path cell-treasure';
           el.textContent = '🎁';
         } else {
-          el.className = 'cell ' + (visited.has(r * COLS + c) ? 'visited' : 'path');
+          el.className  = 'cell ' + (visited.has(r * COLS + c) ? 'visited' : 'path');
           el.textContent = '';
         }
       }
     }
+    updateAllFracoLabels();
   }
 
-  // ── Attack enemy ─────────────────────────────────────────────
-  function attackEnemy(r, c, dr, dc) {
+  // ── Fraco floating labels ────────────────────────────────────
+  function createFracoLabel(idx) {
+    if (enemies[idx].label) return;
+    var lbl = document.createElement('div');
+    lbl.className   = 'enemy-fraco-label';
+    lbl.textContent = 'FRACO';
+    document.body.appendChild(lbl);
+    enemies[idx].label = lbl;
+  }
+
+  function updateAllFracoLabels() {
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (!e.label) continue;
+      if (e.r === -1) { e.label.style.display = 'none'; continue; }
+      var el = getCell(e.r, e.c);
+      if (!el) continue;
+      var rect = el.getBoundingClientRect();
+      e.label.style.left    = (rect.left + rect.width / 2) + 'px';
+      e.label.style.top     = (rect.bottom + 2) + 'px';
+      e.label.style.display = 'block';
+    }
+  }
+
+  function removeFracoLabel(idx) {
+    if (enemies[idx] && enemies[idx].label) {
+      enemies[idx].label.remove();
+      enemies[idx].label = null;
+    }
+  }
+
+  function removeAllFracoLabels() {
+    for (var i = 0; i < enemies.length; i++) removeFracoLabel(i);
+  }
+
+  // ── Attack enemy (player wins) ───────────────────────────────
+  function attackEnemy(idx, dr, dc) {
+    var e   = enemies[idx];
+    var r   = e.r, c = e.c;
     var atk = ATTACKS[selectedChar] || ATTACKS['⚔️'];
     var el  = getCell(r, c);
     var rect = el.getBoundingClientRect();
     var cx = rect.left + rect.width  / 2;
     var cy = rect.top  + rect.height / 2;
 
-    // Cell flash
     el.textContent = atk.cellEmoji;
-    el.className = 'cell path cell-' + atk.cellAnim;
+    el.className   = 'cell path cell-' + atk.cellAnim;
     setTimeout(function () { el.textContent = ''; el.className = 'cell path'; }, atk.duration + 60);
 
-    // Floating label
     var lbl = document.createElement('div');
-    lbl.className = 'attack-label';
+    lbl.className   = 'attack-label';
     lbl.textContent = atk.label;
     lbl.style.color = atk.labelColor;
     lbl.style.left  = cx + 'px';
@@ -355,25 +428,23 @@ var ATTACKS = {
     document.body.appendChild(lbl);
     setTimeout(function () { lbl.remove(); }, 1100);
 
-    // Particles
     for (var i = 0; i < atk.count; i++) {
-      (function (idx) {
-        var p = atk.makeParticles(idx, atk.count, cx, cy, dr, dc);
+      (function (idx2) {
+        var p    = atk.makeParticles(idx2, atk.count, cx, cy, dr, dc);
         var part = document.createElement('div');
-        part.className = 'expl-particle';
-        part.textContent = atk.pool[idx % atk.pool.length];
+        part.className   = 'expl-particle';
+        part.textContent = atk.pool[idx2 % atk.pool.length];
         part.style.left  = p.x + 'px';
         part.style.top   = p.y + 'px';
         part.style.setProperty('--ex', p.ex + 'px');
         part.style.setProperty('--ey', p.ey + 'px');
-        part.style.animationDuration  = (atk.duration / 1000 + 0.1) + 's';
-        part.style.animationDelay     = (Math.random() * 55) + 'ms';
+        part.style.animationDuration = (atk.duration / 1000 + 0.1) + 's';
+        part.style.animationDelay    = (Math.random() * 55) + 'ms';
         document.body.appendChild(part);
         setTimeout(function () { part.remove(); }, atk.duration + 200);
       }(i));
     }
 
-    // Paladin AoE — flash neighbouring cells
     if (selectedChar === '🛡️') {
       var adj = [[-1,0],[1,0],[0,-1],[0,1]];
       for (var a = 0; a < adj.length; a++) {
@@ -388,7 +459,8 @@ var ATTACKS = {
       }
     }
 
-    eR = -1; eC = -1;
+    removeFracoLabel(idx);
+    e.r = -1; e.c = -1;
   }
 
   // ── Lives display ────────────────────────────────────────────
@@ -397,22 +469,20 @@ var ATTACKS = {
   }
 
   // ── Enemy counterattack — first encounter ────────────────────
-  function enemyCounterattack() {
+  function enemyCounterattack(idx) {
     blocked = true;
-    enemyWeak = true;
+    enemies[idx].weak = true;
     lives--;
     updateLives();
 
-    // ── Phase 1: impact at player's current position ─────────────
-    // Enemy cell flashes red
-    var enemyEl = getCell(eR, eC);
+    var e       = enemies[idx];
+    var enemyEl = getCell(e.r, e.c);
     enemyEl.classList.add('cell-enemy-strike');
     setTimeout(function () { enemyEl.classList.remove('cell-enemy-strike'); }, 500);
 
-    // Floating label rising from enemy
     var rect = enemyEl.getBoundingClientRect();
-    var lbl = document.createElement('div');
-    lbl.className = 'attack-label';
+    var lbl  = document.createElement('div');
+    lbl.className   = 'attack-label';
     lbl.textContent = '💀 Ataque Inimigo!';
     lbl.style.color = '#ff3300';
     lbl.style.left  = (rect.left + rect.width  / 2) + 'px';
@@ -420,25 +490,21 @@ var ATTACKS = {
     document.body.appendChild(lbl);
     setTimeout(function () { lbl.remove(); }, 1100);
 
-    // Red viewport flash
     document.body.classList.add('player-hit');
     setTimeout(function () { document.body.classList.remove('player-hit'); }, 450);
 
-    // Player shakes in place
     var playerEl = getCell(pR, pC);
     playerEl.classList.add('cell-player-stunned');
 
-    // ── Phase 2 (~520ms): dissolve from old cell, pop into start ──
     setTimeout(function () {
       pR = START_R; pC = START_C;
       render();
+      createFracoLabel(idx);
+      updateAllFracoLabels();
 
-      // Bounce-in animation on the start cell
       var startEl = getCell(START_R, START_C);
       startEl.classList.add('cell-player-arrive');
       setTimeout(function () { startEl.classList.remove('cell-player-arrive'); }, 460);
-
-      // Unblock input after arrival settles
       setTimeout(function () { blocked = false; }, 460);
 
       if (lives <= 0) {
@@ -449,13 +515,22 @@ var ATTACKS = {
     }, 520);
   }
 
-  // ── "TENTE DE NOVO!" overlay message ─────────────────────────
+  // ── "TENTE DE NOVO!" message ──────────────────────────────────
   function showRetryMessage() {
     var msg = document.createElement('div');
-    msg.className = 'retry-message';
+    msg.className   = 'retry-message';
     msg.textContent = 'TENTE DE NOVO!';
     document.body.appendChild(msg);
     setTimeout(function () { msg.remove(); }, 1800);
+  }
+
+  // ── "Quase lá!" proximity message ────────────────────────────
+  function showQuaseLa() {
+    var msg = document.createElement('div');
+    msg.className   = 'quase-la-msg';
+    msg.textContent = 'Quase lá! 🎁';
+    document.body.appendChild(msg);
+    setTimeout(function () { msg.remove(); }, 2500);
   }
 
   // ── Game over ────────────────────────────────────────────────
@@ -474,50 +549,54 @@ var ATTACKS = {
 
     var atk = ATTACKS[selectedChar] || ATTACKS['⚔️'];
 
-    if (eR !== -1) {
-      // Detect whether this move is an attack attempt
-      var isAttack = false;
-      if (atk.mechanic === 'ranged') {
-        var ar = pR + dr * 2, ac = pC + dc * 2;
-        if (ar === eR && ac === eC && MAZE[pR + dr][pC + dc] === 0) isAttack = true;
+    // ── Ranged attack check (2 tiles ahead) ───────────────────
+    if (atk.mechanic === 'ranged') {
+      var ar = pR + dr * 2, ac = pC + dc * 2;
+      var ridx = enemyAt(ar, ac);
+      if (ridx !== -1 && MAZE[pR + dr][pC + dc] === 0) {
+        if (!enemies[ridx].weak) { enemyCounterattack(ridx); return; }
+        attackEnemy(ridx, dr, dc);
+        visited.add(pR * COLS + pC);
+        pR = nr; pC = nc;
+        moves++; movesEl.textContent = moves;
+        if (moves === 1) startTimer();
+        checkQuaseLa();
+        render();
+        return;
       }
-      if (!isAttack && nr === eR && nc === eC) isAttack = true;
+    }
 
-      if (isAttack) {
-        if (!enemyWeak) {
-          // First encounter: enemy wins — send player back
-          enemyCounterattack();
-          return;
-        }
-
-        // Enemy is weak: resolve normally per mechanic
-        if (atk.mechanic === 'ranged') {
-          attackEnemy(eR, eC, dr, dc);
-          visited.add(pR * COLS + pC);
-          pR = nr; pC = nc;
-          moves++; movesEl.textContent = moves;
-          if (moves === 1) startTimer();
-          render();
-          return;
-        }
-        if (atk.mechanic === 'adjacent') {
-          attackEnemy(eR, eC, dr, dc);
-          moves++; movesEl.textContent = moves;
-          if (moves === 1) startTimer();
-          render();
-          return;
-        }
-        // contact: fall through — player walks onto former enemy cell below
-        attackEnemy(eR, eC, dr, dc);
+    // ── Adjacent / contact check (1 tile ahead) ───────────────
+    var cidx = enemyAt(nr, nc);
+    if (cidx !== -1) {
+      if (atk.mechanic === 'adjacent') {
+        if (!enemies[cidx].weak) { enemyCounterattack(cidx); return; }
+        attackEnemy(cidx, dr, dc);
+        moves++; movesEl.textContent = moves;
+        if (moves === 1) startTimer();
+        render();
+        return;
       }
+      // contact mechanic
+      if (!enemies[cidx].weak) { enemyCounterattack(cidx); return; }
+      attackEnemy(cidx, dr, dc);
+      // fall through — player steps onto former enemy cell
     }
 
     visited.add(pR * COLS + pC);
     pR = nr; pC = nc;
     moves++; movesEl.textContent = moves;
     if (moves === 1) startTimer();
+    checkQuaseLa();
     render();
     if (pR === GOAL_R && pC === GOAL_C) celebrate();
+  }
+
+  function checkQuaseLa() {
+    if (!shownQuaseLa && !won && Math.abs(pR - GOAL_R) + Math.abs(pC - GOAL_C) <= 3) {
+      shownQuaseLa = true;
+      showQuaseLa();
+    }
   }
 
   // ── Timer ───────────────────────────────────────────────────
@@ -579,7 +658,7 @@ var ATTACKS = {
     }
   });
 
-  // ── Input — D-pad ────────────────────────────────────────────
+  // ── Input — D-pad (desktop fallback) ─────────────────────────
   document.querySelectorAll('.dpad-btn[data-dir]').forEach(function (btn) {
     function go(e) {
       e.preventDefault();
@@ -591,6 +670,18 @@ var ATTACKS = {
     }
     btn.addEventListener('click',      go);
     btn.addEventListener('touchstart', go, { passive: false });
+  });
+
+  // ── Input — edge controls (touch) ────────────────────────────
+  document.querySelectorAll('.edge-ctrl[data-dir]').forEach(function (zone) {
+    zone.addEventListener('touchstart', function (e) {
+      e.preventDefault();
+      var d = zone.dataset.dir;
+      if (d === 'up')    move(-1,  0);
+      if (d === 'down')  move( 1,  0);
+      if (d === 'left')  move( 0, -1);
+      if (d === 'right') move( 0,  1);
+    }, { passive: false });
   });
 
   // ── Input — swipe on maze ────────────────────────────────────
@@ -620,7 +711,6 @@ var ATTACKS = {
     winScreen.classList.remove('open');
     showCharScreen();
   });
-
   document.getElementById('btn-lose-restart').addEventListener('click', function () {
     loseScreen.classList.remove('open');
     showCharScreen();
