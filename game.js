@@ -171,6 +171,7 @@ var ATTACKS = {
   var lives = 3;
   var blocked = false;
   var shownQuaseLa = false;
+  var firstGame = true;
 
   // ── DOM ─────────────────────────────────────────────────────
   var mazeEl        = document.getElementById('maze');
@@ -293,6 +294,15 @@ var ATTACKS = {
     winScreen.classList.remove('open');
     loseScreen.classList.remove('open');
     buildGrid();
+    if (isTouch && firstGame) {
+      firstGame = false;
+      var toast = document.getElementById('mobile-toast');
+      toast.classList.add('show');
+      setTimeout(function () {
+        toast.classList.add('hide');
+        setTimeout(function () { toast.classList.remove('show', 'hide'); }, 450);
+      }, 3000);
+    }
   }
 
   // ── Cell size ────────────────────────────────────────────────

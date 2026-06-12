@@ -226,6 +226,36 @@ body::before {
 .hero-pill { letter-spacing: 0; }
 
 /* ══════════════════════════════════════════════════
+   MOBILE TOAST
+════════════════════════════════════════════════════ */
+#mobile-toast {
+  display: none;
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20,10,2,0.88);
+  border: 1px solid var(--border);
+  color: var(--amber);
+  font-size: 0.82rem;
+  padding: 9px 18px;
+  border-radius: 20px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 900;
+  opacity: 0;
+  transition: opacity 0.4s;
+  white-space: nowrap;
+}
+.is-touch #mobile-toast.show {
+  display: block;
+  opacity: 1;
+}
+.is-touch #mobile-toast.hide {
+  opacity: 0;
+}
+
+/* ══════════════════════════════════════════════════
    SEED ROW (in-game)
 ════════════════════════════════════════════════════ */
 .seed-row { display: none; }
