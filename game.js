@@ -3,10 +3,10 @@
 // ══════════════════════════════════════════════════════════════
 var CONFIG = {
   seed:      null,
-  gameName:  'A Masmorra',
-  tagline:   'Encontre o tesouro nas profundezas...',
-  title:     'Parabéns, vc achou meu tesouro 💎',
-  message:   'Muito obrigado por tudo meu amor,\n por estar sempre do nosso lado e por me aturar sempre 💕\n Com você todo esforço vale a pena e toda alegria se multiplica ',
+  gameName:  'O Labirinto de Joni',
+  tagline:   'Encontre o tesouro escondidos...',
+  title:     'Parabéns, vc achou meu tesouro!',
+  message:   'Ter você do meu lado faz cada momento valer a pena, Te amo Li 💕 ',
   imageSrc:  'amore.jpg',
 };
 
@@ -181,8 +181,6 @@ var ATTACKS = {
   var hintEl        = document.getElementById('hint-text');
   var winScreen     = document.getElementById('win-screen');
   var charScreen    = document.getElementById('char-screen');
-  var fMovesEl      = document.getElementById('f-moves');
-  var fTimeEl       = document.getElementById('f-time');
   var lovePhoto     = document.getElementById('love-photo');
   var placeholder   = document.getElementById('photo-placeholder');
   var seedInput     = document.getElementById('seed-input');
@@ -608,7 +606,6 @@ var ATTACKS = {
   // ── Win ─────────────────────────────────────────────────────
   function celebrate() {
     won = true; clearInterval(timerID);
-    fMovesEl.textContent = moves; fTimeEl.textContent = seconds + 's';
     spawnParticles(); spawnWinRain();
     setTimeout(function () { winScreen.classList.add('open'); }, 600);
   }
